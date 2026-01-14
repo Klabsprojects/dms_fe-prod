@@ -41,6 +41,9 @@ const [cancelGrnItems, setCancelGrnItems] = useState([]);
 const [billingPopup, setBillingPopup] = useState(false);
 const [billingList, setBillingList] = useState([]);
 const [loadingBilling, setLoadingBilling] = useState(false);
+const [showGrnSummary, setShowGrnSummary] = useState(false);
+const [grnSummaryData, setGrnSummaryData] = useState(null);
+const [finalRemarks, setFinalRemarks] = useState('');
 
 const [loadingCancelItems, setLoadingCancelItems] = useState(false);
   const dropdownRef = useRef(null);
@@ -257,10 +260,31 @@ const handleBilling = async (order) => {
 
   // Replace your existing handleSubmitGRN function with this updated version:
 
-const handleSubmitGRN = async () => {
-  if (submitting) return; // ✅ Prevent double clicks
-  setSubmitting(true);
+const handleSubmitGRN = () => {
+  if (submitting) return;
+  
+  // Calculate summary
+  const totalItems = selectedOrderItems.filter(item => parseFloat(item.qty || 0) > 0).length;
+  const totalReceivedQty = selectedOrderItems.reduce((sum, item, index) => {
+    if (receivedStatus[index] === 'approve') {
+      return sum + parseFloat(receivedQuantities[index] || 0);
+    }
+    return sum;
+  }, 0);
 
+  setGrnSummaryData({
+    orderNumber: viewedOrderId,
+    orderDate: orders.find(o => o.id === viewedOrderId)?.created || '',
+    totalItems: totalItems,
+    totalReceivedQty: totalReceivedQty.toFixed(3)
+  });
+  
+  setShowGrnSummary(true);
+};
+
+const handleConfirmGrnSubmission = async () => {
+  setSubmitting(true);
+  
   const today = new Date().toISOString().split('T')[0];
   const itemsPayload = selectedOrderItems.map((item, index) => {
     const status = receivedStatus[index];
@@ -296,11 +320,13 @@ const handleSubmitGRN = async () => {
       body: JSON.stringify({
         received: today,
         items: itemsPayload,
+        remarks: finalRemarks.trim() || undefined
       }),
     });
 
     if (response.ok) {
       setSuccessMessage('GRN submitted successfully!');
+      setShowGrnSummary(false);
       setTimeout(() => window.location.reload(), 1500);
     } else {
       const errorResult = await response.json();
@@ -311,7 +337,7 @@ const handleSubmitGRN = async () => {
     console.error('Error during GRN submission:', error);
     setSuccessMessage('An error occurred while submitting GRN.');
   } finally {
-    setSubmitting(false); // ✅ Re-enable after done
+    setSubmitting(false);
   }
 };
 
@@ -1341,6 +1367,75 @@ ${index === currentOrders.length - 1 ? "bottom-full mb-2" : "mt-2"}`}
           className="px-5 py-2 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700"
         >
           Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* GRN Summary Modal */}
+{showGrnSummary && grnSummaryData && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="bg-white rounded-lg shadow-xl w-[600px] overflow-hidden">
+      
+      {/* Green Header */}
+      <div className="bg-green-600 text-white px-6 py-4">
+        <h2 className="text-xl font-bold text-center">GRN Dispatch Summary</h2>
+        <p className="text-center text-sm mt-1">Please review before final submission</p>
+      </div>
+
+      <div className="p-6">
+        {/* Order Details Grid */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Order Number</p>
+            <p className="text-lg font-bold text-gray-800">#{grnSummaryData.orderNumber}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Order Date</p>
+            <p className="text-lg font-bold text-gray-800">{formatDate(grnSummaryData.orderDate)}</p>
+          </div>
+          {/* <div>
+            <p className="text-sm text-gray-600 mb-1">Total Items</p>
+            <p className="text-lg font-bold text-gray-800">{grnSummaryData.totalItems}</p>
+          </div> */}
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Total Received Quantity</p>
+            <p className="text-lg font-bold text-green-600">{grnSummaryData.totalReceivedQty}</p>
+          </div>
+        </div>
+
+        {/* Remarks Section */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+          <textarea
+            value={finalRemarks}
+            onChange={(e) => setFinalRemarks(e.target.value)}
+            placeholder="Enter any additional remarks for this GRN..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            rows="3"
+          />
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t">
+        <button
+          onClick={() => {
+            setShowGrnSummary(false);
+            setFinalRemarks('');
+          }}
+          disabled={submitting}
+          className="px-5 py-2 bg-gray-500 text-white rounded-md font-semibold hover:bg-gray-600 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleConfirmGrnSubmission}
+          disabled={submitting}
+          className="px-5 py-2 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 disabled:opacity-50"
+        >
+          {submitting ? 'Submitting...' : 'Confirm & Submit GRN'}
         </button>
       </div>
     </div>

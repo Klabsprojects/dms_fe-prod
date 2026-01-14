@@ -131,25 +131,38 @@ const updateBrand = (brandIndex, packIndex, field, value) => {
 <div className="mb-4 flex gap-3 items-end">
 
     {/* BRAND TYPE */}
-    <div className="w-48">
-        <label className="text-gray-700 font-medium block mb-1">
-            Brand Type
-        </label>
-        <select
-            className="border rounded px-3 py-2 w-full"
-            value={brand.brandType || ""}
-            onChange={(e) => {
-                const updated = [...brandList];
-                updated[bi].brandType = e.target.value;
-                setBrandList(updated);
-            }}
-        >
-            <option value="">Select</option>
-            <option value="Cooperative">Cooperative</option>
-            <option value="JPC">JPC</option>
-            <option value="Non-JPC">Non-JPC</option>
-        </select>
-    </div>
+   {/* BRAND TYPE */}
+<div className="w-48">
+    <label className="text-gray-700 font-medium block mb-1">
+        Brand Type
+    </label>
+    <select
+        className="border rounded px-3 py-2 w-full"
+        value={brand.brandType || ""}
+        onChange={(e) => {
+            const updated = [...brandList];
+            updated[bi].brandType = e.target.value;
+            
+            // 🔹 If JPC is selected, auto-set pack size to "loose"
+            if (e.target.value === "JPC") {
+                updated[bi].packs.forEach(pack => {
+                    pack.packQty = "loose";
+                    // Recalculate autoRate for loose (rate = rate per kg)
+                    if (pack.rate) {
+                        pack.autoRate = Number(pack.rate).toFixed(2);
+                    }
+                });
+            }
+            
+            setBrandList(updated);
+        }}
+    >
+        <option value="">Select</option>
+        <option value="Cooperative">Cooperative</option>
+        <option value="JPC">JPC</option>
+        <option value="Non-JPC">Non-JPC</option>
+    </select>
+</div>
 
     {/* BRAND NAME */}
     <div className="flex-1">
@@ -196,7 +209,7 @@ const updateBrand = (brandIndex, packIndex, field, value) => {
         {/* MAIN ROW */}
 <div className={`grid gap-3 mb-2 items-end ${p.packQty !== "loose" && item.gst > 0 ? 'grid-cols-7' : 'grid-cols-6'}`}>
 
-            <div className="col-span-2">
+      <div className="col-span-2">
     <label className="text-gray-700 font-medium block mb-1">Pack Size</label>
     <select
         className="border rounded px-2 py-2 w-full"
@@ -206,26 +219,28 @@ const updateBrand = (brandIndex, packIndex, field, value) => {
         <option value="">Select</option>
         {(() => {
             // Get already selected pack sizes in this brand (excluding current pack)
-       const selectedPacks = brand.packs
-    .filter(
-        (pack, idx) =>
-            idx !== pi &&
-            pack.packQty &&
-            pack.packQty !== "others" // 👈 allow multiple "others"
-    )
-    .map(pack => pack.packQty);
+            const selectedPacks = brand.packs
+                .filter(
+                    (pack, idx) =>
+                        idx !== pi &&
+                        pack.packQty &&
+                        pack.packQty !== "others"
+                )
+                .map(pack => pack.packQty);
 
-            const allOptions = [
-                { value: "0.1", label: "100 Gm" },
-                { value: "0.2", label: "200 Gm" },
-                { value: "0.25", label: "250 Gm" },
-                { value: "0.5", label: "500 Gm" },
-                { value: "1", label: "1 Kg" },
-                { value: "2", label: "2 Kg" },
-                { value: "others", label: "Others" },
-                { value: "loose", label: "Loose Qty" }
-            ];
-
+            // 🔹 If brand type is JPC, only show Loose Qty
+            const allOptions = brand.brandType === "JPC" 
+                ? [{ value: "loose", label: "Loose Qty" }]
+                : [
+                    { value: "0.1", label: "100 Gm" },
+                    { value: "0.2", label: "200 Gm" },
+                    { value: "0.25", label: "250 Gm" },
+                    { value: "0.5", label: "500 Gm" },
+                    { value: "1", label: "1 Kg" },
+                    { value: "2", label: "2 Kg" },
+                    { value: "others", label: "Others" },
+                    { value: "loose", label: "Loose Qty" }
+                ];
             return allOptions.map(opt => {
                 const isDisabled = selectedPacks.includes(opt.value);
                 return (
